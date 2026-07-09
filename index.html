@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory & Invoice Manager</title>
+    <title>Cloud Inventory & Invoice Manager</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -26,10 +26,9 @@
         body {
             background-color: #f8fafc;
             color: var(--text);
-            padding-bottom: 60px; /* Space for mobile bottom nav */
+            padding-bottom: 60px;
         }
 
-        /* Navigation Bar */
         nav {
             background-color: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -68,7 +67,6 @@
             color: white;
         }
 
-        /* Main Content Layout */
         main {
             max-width: 1000px;
             margin: 20px auto;
@@ -93,7 +91,6 @@
             color: var(--gray-700);
         }
 
-        /* Form Styling */
         .form-group {
             margin-bottom: 15px;
         }
@@ -110,7 +107,7 @@
             padding: 10px;
             border: 1px solid var(--gray-200);
             border-radius: 6px;
-            font-size: 16px; /* Prevents auto-zoom on mobile safari */
+            font-size: 16px;
         }
 
         button.btn-submit {
@@ -125,7 +122,6 @@
             cursor: pointer;
         }
 
-        /* Inventory Table / Cards */
         .search-bar {
             margin-bottom: 15px;
         }
@@ -177,7 +173,6 @@
             text-align: center;
         }
 
-        /* Invoice Sheet Layout */
         .invoice-creator-split {
             display: grid;
             grid-template-columns: 1fr;
@@ -234,7 +229,6 @@
             margin-top: 15px;
         }
 
-        /* Mobile Bottom Menu Fix */
         @media (max-width: 600px) {
             nav {
                 position: fixed;
@@ -247,31 +241,20 @@
                 padding-top: 10px;
                 padding-bottom: 80px;
             }
-            .nav-container {
-                padding: 10px;
-            }
-            .nav-links {
-                width: 100%;
-                justify-content: space-around;
-            }
+            .nav-container { padding: 10px; }
+            .nav-links { width: 100%; justify-content: space-around; }
         }
 
-        /* Print Override styles */
         @media print {
-            body * {
-                visibility: hidden;
-            }
-            .invoice-paper, .invoice-paper * {
-                visibility: visible;
-            }
-            .invoice-paper {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
+            body * { visibility: hidden; }
+            .invoice-paper, .invoice-paper * { visibility: visible; }
+            .invoice-paper { position: absolute; left: 0; top: 0; width: 100%; }
         }
     </style>
+
+    <!-- Firebase SDK Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -286,34 +269,31 @@
     </nav>
 
     <main>
-        <!-- Tab 1: View Inventory -->
         <section id="inventory-sec" class="view-section active">
             <h2>Current Stock</h2>
             <input type="text" id="search-input" class="search-bar" placeholder="🔍 Search items..." oninput="renderInventory()">
-            <div id="inventory-list" class="item-list"></div>
+            <div id="inventory-list" class="item-list">Loading cloud inventory...</div>
         </section>
 
-        <!-- Tab 2: Add Item -->
         <section id="add-item-sec" class="view-section">
             <h2>Add New Stock Item</h2>
             <form id="add-item-form" onsubmit="handleAddItem(event)">
                 <div class="form-group">
                     <label>Item Name</label>
-                    <input type="text" id="prod-name" required placeholder="e.g., Wireless Mouse">
+                    <input type="text" id="prod-name" required>
                 </div>
                 <div class="form-group">
-                    <label>Price ($)</label>
-                    <input type="number" id="prod-price" step="0.01" required placeholder="0.00">
+                    <label>Price</label>
+                    <input type="number" id="prod-price" step="0.01" required>
                 </div>
                 <div class="form-group">
                     <label>Initial Stock Qty</label>
-                    <input type="number" id="prod-stock" required placeholder="0">
+                    <input type="number" id="prod-stock" required>
                 </div>
-                <button type="submit" class="btn-submit">Save Item</button>
+                <button type="submit" class="btn-submit">Save to Cloud</button>
             </form>
         </section>
 
-        <!-- Tab 3: Create Invoice -->
         <section id="invoice-sec" class="view-section">
             <h2>Generate Invoice</h2>
             <div class="invoice-creator-split">
@@ -329,6 +309,7 @@
                     </div>
                     <button class="btn-submit" onclick="addItemToInvoice()" style="background-color: var(--success); margin-bottom: 20px;">Add to Bill</button>
                     <button class="btn-submit" onclick="window.print()" style="background-color: var(--gray-700)">Print / Save PDF</button>
+                    <button class="btn-submit" onclick="clearInvoice()" style="background-color: var(--danger); margin-top:10px;">Clear Invoice</button>
                 </div>
 
                 <div class="invoice-preview-container">
@@ -338,9 +319,7 @@
                                 <h2>INVOICE</h2>
                                 <p style="font-size: 12px; color: #666;" id="invoice-date"></p>
                             </div>
-                            <div style="text-align: right;">
-                                <strong>My Store Inc.</strong>
-                            </div>
+                            <div style="text-align: right;"><strong>My Store Inc.</strong></div>
                         </div>
                         <table class="invoice-table">
                             <thead>
@@ -351,13 +330,9 @@
                                     <th style="text-align: right;">Total</th>
                                 </tr>
                             </thead>
-                            <tbody id="invoice-items-body">
-                                <!-- Dynamic rows go here -->
-                            </tbody>
+                            <tbody id="invoice-items-body"></tbody>
                         </table>
-                        <div class="invoice-total-row">
-                            Total Due: $<span id="invoice-total-val">0.00</span>
-                        </div>
+                        <div class="invoice-total-row">Total Due: <span id="invoice-total-val">0.00</span></div>
                     </div>
                 </div>
             </div>
@@ -365,13 +340,35 @@
     </main>
 
     <script>
-        // Sample baseline starter data
-        let inventory = [
-            { id: 1, name: "Sample Item A", price: 10.00, stock: 25 },
-            { id: 2, name: "Sample Item B", price: 45.50, stock: 7 }
-        ];
+        // --- PASTE YOUR FIREBASE CONFIGURATION BOX HERE ---
+        const firebaseConfig = {
+            apiKey: "PASTE_YOURS_HERE",
+            authDomain: "PASTE_YOURS_HERE",
+            databaseURL: "PASTE_YOURS_HERE",
+            projectId: "PASTE_YOURS_HERE",
+            storageBucket: "PASTE_YOURS_HERE",
+            messagingSenderId: "PASTE_YOURS_HERE",
+            appId: "PASTE_YOURS_HERE"
+        };
+        // --------------------------------------------------
 
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let inventory = [];
         let invoiceItems = [];
+
+        // Connect database and track in real-time
+        db.ref('inventory').on('value', (snapshot) => {
+            const data = snapshot.val();
+            inventory = [];
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    inventory.push({ id: key, ...data[key] });
+                });
+            }
+            renderInventory();
+        });
 
         function switchTab(tabId) {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -396,18 +393,24 @@
             const search = document.getElementById('search-input').value.toLowerCase();
             list.innerHTML = '';
 
-            inventory.filter(item => item.name.toLowerCase().includes(search)).forEach(item => {
+            const filtered = inventory.filter(item => item.name.toLowerCase().includes(search));
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">No items found.</p>';
+                return;
+            }
+
+            filtered.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'item-card';
                 card.innerHTML = `
                     <div class="item-info">
                         <h4>${item.name}</h4>
-                        <p>$${item.price.toFixed(2)} each</p>
+                        <p>${parseFloat(item.price).toFixed(2)} each</p>
                     </div>
                     <div class="stock-controls">
-                        <button class="qty-btn" onclick="changeStock(${item.id}, -1)">-</button>
+                        <button class="qty-btn" onclick="changeStock('${item.id}', -1)">-</button>
                         <span class="stock-val">${item.stock}</span>
-                        <button class="qty-btn" onclick="changeStock(${item.id}, 1)">+</button>
+                        <button class="qty-btn" onclick="changeStock('${item.id}', 1)">+</button>
                     </div>
                 `;
                 list.appendChild(card);
@@ -417,8 +420,8 @@
         function changeStock(id, amount) {
             const item = inventory.find(i => i.id === id);
             if (item) {
-                item.stock = Math.max(0, item.stock + amount);
-                renderInventory();
+                const newStock = Math.max(0, item.stock + amount);
+                db.ref('inventory/' + id).update({ stock: newStock });
             }
         }
 
@@ -428,11 +431,11 @@
             const price = parseFloat(document.getElementById('prod-price').value);
             const stock = parseInt(document.getElementById('prod-stock').value);
 
-            inventory.push({ id: Date.now(), name, price, stock });
+            const newItemRef = db.ref('inventory').push();
+            newItemRef.set({ name, price, stock });
+
             document.getElementById('add-item-form').reset();
-            
             switchTab('inventory');
-            renderInventory();
         }
 
         function setupInvoiceSelect() {
@@ -441,7 +444,7 @@
             inventory.forEach(item => {
                 const opt = document.createElement('option');
                 opt.value = item.id;
-                opt.textContent = `${item.name} ($${item.price.toFixed(2)})`;
+                opt.textContent = `${item.name} (${parseFloat(item.price).toFixed(2)})`;
                 select.appendChild(opt);
             });
         }
@@ -450,7 +453,7 @@
             const select = document.getElementById('invoice-item-select');
             if(!select.value) return;
             
-            const itemId = parseInt(select.value);
+            const itemId = select.value;
             const qty = parseInt(document.getElementById('invoice-qty').value);
             const item = inventory.find(i => i.id === itemId);
 
@@ -469,20 +472,13 @@
                 const subtotal = item.price * item.qty;
                 total += subtotal;
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.name}</td>
-                    <td>${item.qty}</td>
-                    <td>$${item.price.toFixed(2)}</td>
-                    <td style="text-align: right;">$${subtotal.toFixed(2)}</td>
-                `;
+                row.innerHTML = `<td>${item.name}</td><td>${item.qty}</td><td>${item.price.toFixed(2)}</td><td style="text-align: right;">${subtotal.toFixed(2)}</td>`;
                 tbody.appendChild(row);
             });
-
             document.getElementById('invoice-total-val').innerText = total.toFixed(2);
         }
 
-        // Run on initial page load
-        renderInventory();
+        function clearInvoice() { invoiceItems = []; renderInvoicePreview(); }
     </script>
 </body>
 </html>
